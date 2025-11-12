@@ -28,8 +28,8 @@
         <label class="block text-gray-700 mb-1 font-semibold">File Type</label>
         <p class="text-sm text-gray-500 mb-2">Choose whether to generate a PNG or SVG image.</p>
         <select id="fileType" class="w-full p-2 border border-gray-300 rounded-lg">
-          <option value="png" selected>PNG</option>
-          <option value="svg">SVG</option>
+          <option value="png">PNG</option>
+          <option value="svg" selected>SVG</option>
         </select>
       </div>
 
@@ -45,7 +45,7 @@
       <div class="mb-4">
         <label class="block text-gray-700 mb-1 font-semibold">Border Width</label>
         <p class="text-sm text-gray-500 mb-2">Number of white boxes around the QR code.</p>
-        <input id="border" type="number" value="4" min="0" max="20"
+        <input id="border" type="number" value="2" min="0" max="20"
           class="w-full p-2 border border-gray-300 rounded-lg">
       </div>
 
@@ -53,28 +53,37 @@
       <div class="mb-4">
         <label class="block text-gray-700 mb-1 font-semibold">Colors</label>
         <p class="text-sm text-gray-500 mb-2">Choose the fill (foreground) and background colors for your QR code.</p>
-        <div class="flex gap-2 mb-2">
-          <div class="flex-1">
-            <label class="block text-gray-600 text-sm">Fill color</label>
-            <input id="fillColor" type="color" value="#000000" class="w-full h-10 rounded-lg">
+        <div class="flex gap-3 mb-3">
+          <div class="flex-1 flex flex-col">
+            <label class="block text-gray-600 text-sm mb-1">Fill color</label>
+            <div class="flex items-center gap-2 border border-gray-300 rounded-lg p-2 bg-white h-10">
+              <input id="fillColor" type="color" value="#000000" class="w-8 h-8 border-none rounded cursor-pointer flex-shrink-0">
+              <input id="fillColorDisplay" type="text" value="#000000" maxlength="7" class="text-gray-600 text-sm font-mono flex-1 bg-gray-50 px-2 py-1 rounded border-none outline-none cursor-text w-20">
+            </div>
           </div>
-          <div class="flex-1">
-            <label class="block text-gray-600 text-sm">Background color</label>
-            <input id="bgColor" type="color" value="#ffffff" class="w-full h-10 rounded-lg">
+          <div class="flex-1 flex flex-col">
+            <label class="block text-gray-600 text-sm mb-1">Background color</label>
+            <div class="flex items-center gap-2 border border-gray-300 rounded-lg p-2 bg-white h-10">
+              <input id="bgColor" type="color" value="#ffffff" class="w-8 h-8 border-none rounded cursor-pointer flex-shrink-0">
+              <input id="bgColorDisplay" type="text" value="#FFFFFF" maxlength="7" class="text-gray-600 text-sm font-mono flex-1 bg-gray-50 px-2 py-1 rounded border-none outline-none cursor-text w-20">
+            </div>
           </div>
         </div>
-        <label class="inline-flex items-center gap-2">
-          <input id="transparentBg" type="checkbox" class="w-4 h-4 text-blue-600">
+        <label class="inline-flex items-center gap-2 cursor-pointer">
+          <input id="transparentBg" type="checkbox" class="w-4 h-4 text-blue-600 rounded cursor-pointer">
           <span class="text-sm text-gray-600">Transparent background</span>
         </label>
       </div>
 
-      <div id="downloadLink" class="mt-6 text-center"></div>
+      <div id="downloadLink" class="mt-6 text-center">
+        <button id="downloadBtn" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          Download QR Code
+        </button>
+      </div>
     </div>
 
     <!-- Right Panel -->
     <div class="md:w-2/3 flex flex-col items-center justify-center bg-gray-200 p-8 relative">
-      <h2 class="text-xl font-semibold mb-4 text-gray-700">Preview</h2>
       <div id="previewArea"
         class="flex items-center justify-center bg-gray-200 rounded-xl p-6 min-h-[400px] w-full max-w-2xl">
         <canvas id="qrCanvas" class="max-w-full h-auto"></canvas>
@@ -89,10 +98,14 @@
   const sizeInput = document.getElementById('size');
   const borderInput = document.getElementById('border');
   const fillColorInput = document.getElementById('fillColor');
+  const fillColorDisplay = document.getElementById('fillColorDisplay');
   const bgColorInput = document.getElementById('bgColor');
+  const bgColorDisplay = document.getElementById('bgColorDisplay');
   const transparentBg = document.getElementById('transparentBg');
   const canvas = document.getElementById('qrCanvas');
-  const downloadLink = document.getElementById('downloadLink');
+  const downloadBtn = document.getElementById('downloadBtn');
+  let currentDataUrl = null;
+  let currentFileType = 'png';
 
   async function generateQR() {
     const url = urlInput.value.trim() || 'https://example.com';
@@ -121,16 +134,53 @@
         dataUrl = 'data:image/svg+xml;base64,' + btoa(svgString);
       }
 
-      downloadLink.innerHTML = `
-        <a href="${dataUrl}" download="qr.${type}" class="text-blue-500 underline">
-          Download QR Code
-        </a>
-      `;
+      currentDataUrl = dataUrl;
+      currentFileType = type;
+      downloadBtn.disabled = false;
     } catch (err) {
       console.error(err);
-      downloadLink.innerHTML = `<p class="text-red-500">Failed to generate QR code.</p>`;
+      downloadBtn.disabled = true;
     }
   }
+
+  // Handle download button click
+  downloadBtn.addEventListener('click', () => {
+    if (currentDataUrl) {
+      const a = document.createElement('a');
+      a.href = currentDataUrl;
+      a.download = `qr.${currentFileType}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  });
+
+  // Update color displays and sync
+  fillColorInput.addEventListener('input', () => {
+    fillColorDisplay.value = fillColorInput.value.toUpperCase();
+    generateQR();
+  });
+
+  fillColorDisplay.addEventListener('input', () => {
+    const hex = fillColorDisplay.value.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      fillColorInput.value = hex;
+      generateQR();
+    }
+  });
+
+  bgColorInput.addEventListener('input', () => {
+    bgColorDisplay.value = bgColorInput.value.toUpperCase();
+    generateQR();
+  });
+
+  bgColorDisplay.addEventListener('input', () => {
+    const hex = bgColorDisplay.value.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      bgColorInput.value = hex;
+      generateQR();
+    }
+  });
 
   // Live updates for all fields
   [urlInput, fileType, sizeInput, borderInput, fillColorInput, bgColorInput, transparentBg].forEach(el => {
